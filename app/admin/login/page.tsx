@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { loginAction } from "./actions";
-import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/auth";
+import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/session";
 
 type LoginPageProps = {
   searchParams?: Promise<{
@@ -28,7 +28,7 @@ export default async function AdminLoginPage({ searchParams }: LoginPageProps) {
 
   if (existingSessionToken) {
     try {
-      if (verifySessionToken(existingSessionToken)) {
+      if (await verifySessionToken(existingSessionToken)) {
         redirect("/admin");
       }
     } catch (error) {
