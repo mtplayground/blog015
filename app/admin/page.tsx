@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { listAdminPosts } from "./posts/actions";
+import { DeleteButton } from "./posts/components/delete-button";
+import { deletePostAction, listAdminPosts } from "./posts/actions";
 
 function formatDate(value: Date): string {
   return new Intl.DateTimeFormat("en-US", {
@@ -54,9 +55,10 @@ export default async function AdminDashboardPage() {
                       <Link href={`/admin/posts/${post.id}/edit`} className="text-blue-700 hover:underline">
                         Edit
                       </Link>
-                      <Link href={`/admin/posts/${post.id}/delete`} className="text-red-700 hover:underline">
-                        Delete
-                      </Link>
+                      <DeleteButton
+                        action={deletePostAction.bind(null, post.id)}
+                        confirmMessage={`Delete \"${post.title}\"? This action cannot be undone.`}
+                      />
                     </div>
                   </td>
                 </tr>

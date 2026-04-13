@@ -405,3 +405,23 @@ export async function updatePostAction(
   revalidatePath(`/admin/posts/${postId}/edit`);
   redirect("/admin");
 }
+
+export async function deletePostAction(postId: number): Promise<void> {
+  "use server";
+
+  try {
+    await prisma.$transaction([
+      prisma.postTag.deleteMany({
+        where: { postId },
+      }),
+      prisma.post.delete({
+        where: { id: postId },
+      }),
+    ]);
+  } catch (error) {
+    console.error("Failed to delete post:", error);
+    return;
+  }
+
+  revalidatePath("/admin");
+}
