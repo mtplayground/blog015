@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PostContent } from "@/app/components/post-content";
@@ -9,31 +10,8 @@ type PostPageProps = {
   }>;
 };
 
-function formatDate(value: Date): string {
-  return new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "2-digit",
-  }).format(value);
-}
-
-export async function generateStaticParams(): Promise<Array<{ slug: string }>> {
-  const posts = await prisma.post.findMany({
-    where: {
-      published: true,
-    },
-    select: {
-      slug: true,
-    },
-  });
-
-  return posts.map((post) => ({ slug: post.slug }));
-}
-
-export default async function PostDetailPage({ params }: PostPageProps) {
-  const { slug } = await params;
-
-  const post = await prisma.post.findFirst({
+async function getPublishedPostBySlug(slug: string) {
+  return prisma.post.findFirst({
     where: {
       slug,
       published: true,
@@ -67,6 +45,77 @@ export default async function PostDetailPage({ params }: PostPageProps) {
       },
     },
   });
+}
+
+function buildDescription(excerpt: string | null, content: string): string {
+  const base = (excerpt ?? content).trim();
+  if (base.length <= 160) {
+    return base;
+  }
+  return `${base.slice(0, 157)}...`;
+}
+
+function formatDate(value: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "2-digit",
+  }).format(value);
+}
+
+export async function generateStaticParams(): Promise<Array<{ slug: string }>> {
+  const posts = await prisma.post.findMany({
+    where: {
+      published: true,
+    },
+    select: {
+      slug: true,
+    },
+  });
+
+  return posts.map((post) => ({ slug: post.slug }));
+}
+
+export async function generateMetadata({ params }: PostPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const post = await getPublishedPostBySlug(slug);
+
+  if (!post) {
+    return {
+      title: "Post Not Found",
+      description: "The requested post was not found.",
+    };
+  }
+
+  const description = buildDescription(post.excerpt, post.content);
+  const canonicalPath = `/posts/${slug}`;
+
+  return {
+    title: post.title,
+    description,
+    openGraph: {
+      type: "article",
+      title: post.title,
+      description,
+      url: canonicalPath,
+      publishedTime: (post.publishedAt ?? post.createdAt).toISOString(),
+      tags: post.tags.map((tagLink) => tagLink.tag.name),
+      images: [
+        {
+          url: `/api/og?title=${encodeURIComponent(post.title)}`,
+          width: 1200,
+          height: 630,
+          alt: post.title,
+        },
+      ],
+    },
+  };
+}
+
+export default async function PostDetailPage({ params }: PostPageProps) {
+  const { slug } = await params;
+
+  const post = await getPublishedPostBySlug(slug);
 
   if (!post) {
     notFound();
