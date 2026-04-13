@@ -8,9 +8,18 @@ type PostFormProps = {
   initialState: PostFormState;
   categories: PostFormOption[];
   tags: PostFormOption[];
+  submitLabel?: string;
+  pendingLabel?: string;
 };
 
-export function PostForm({ action, initialState, categories, tags }: PostFormProps) {
+export function PostForm({
+  action,
+  initialState,
+  categories,
+  tags,
+  submitLabel = "Create Post",
+  pendingLabel = "Saving...",
+}: PostFormProps) {
   const [state, formAction, isPending] = useActionState(action, initialState);
 
   return (
@@ -126,7 +135,7 @@ export function PostForm({ action, initialState, categories, tags }: PostFormPro
         disabled={isPending}
         className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-70"
       >
-        {isPending ? "Creating..." : "Create Post"}
+        {isPending ? pendingLabel : submitLabel}
       </button>
     </form>
   );

@@ -30,6 +30,11 @@ export type PostFormState = {
   values: PostFormValues;
 };
 
+export type EditablePost = {
+  id: number;
+  values: PostFormValues;
+};
+
 export const INITIAL_POST_FORM_STATE: PostFormState = {
   message: null,
   fieldErrors: {},
@@ -41,6 +46,12 @@ export const INITIAL_POST_FORM_STATE: PostFormState = {
     tagIds: [],
     published: false,
   },
+};
+
+type ValidatedPostInput = {
+  values: PostFormValues;
+  categoryId: number | null;
+  tagIds: number[];
 };
 
 function slugify(value: string): string {
@@ -86,6 +97,108 @@ function parseIntegerId(rawValue: string): number | null {
     return null;
   }
   return parsed;
+}
+
+function parsePostFormValues(formData: FormData): PostFormValues {
+  return {
+    title: String(formData.get("title") ?? "").trim(),
+    excerpt: String(formData.get("excerpt") ?? "").trim(),
+    body: String(formData.get("body") ?? "").trim(),
+    categoryId: String(formData.get("categoryId") ?? ""),
+    tagIds: formData.getAll("tagIds").map((value) => String(value)),
+    published: formData.get("published") === "on",
+  };
+}
+
+async function validatePostInput(values: PostFormValues): Promise<
+  | { ok: true; data: ValidatedPostInput }
+  | { ok: false; state: PostFormState }
+> {
+  const fieldErrors: PostFormState["fieldErrors"] = {};
+
+  if (!values.title) {
+    fieldErrors.title = "Title is required.";
+  }
+
+  if (!values.body) {
+    fieldErrors.body = "Body is required.";
+  }
+
+  if (values.excerpt.length > 300) {
+    fieldErrors.excerpt = "Excerpt must be 300 characters or fewer.";
+  }
+
+  const categoryId = values.categoryId ? parseIntegerId(values.categoryId) : null;
+  if (values.categoryId && !categoryId) {
+    fieldErrors.categoryId = "Select a valid category.";
+  }
+
+  const tagIds = Array.from(
+    new Set(values.tagIds.map((value) => parseIntegerId(value)).filter((id): id is number => id !== null)),
+  );
+
+  if (values.tagIds.length !== tagIds.length) {
+    fieldErrors.tagIds = "Select valid tags.";
+  }
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return {
+      ok: false,
+      state: {
+        message: "Please fix the highlighted fields.",
+        fieldErrors,
+        values,
+      },
+    };
+  }
+
+  if (categoryId) {
+    const categoryExists = await prisma.category.findUnique({
+      where: { id: categoryId },
+      select: { id: true },
+    });
+
+    if (!categoryExists) {
+      return {
+        ok: false,
+        state: {
+          message: "Selected category does not exist.",
+          fieldErrors: { categoryId: "Select a valid category." },
+          values,
+        },
+      };
+    }
+  }
+
+  if (tagIds.length > 0) {
+    const matchingTagsCount = await prisma.tag.count({
+      where: {
+        id: {
+          in: tagIds,
+        },
+      },
+    });
+
+    if (matchingTagsCount !== tagIds.length) {
+      return {
+        ok: false,
+        state: {
+          message: "One or more selected tags are invalid.",
+          fieldErrors: { tagIds: "Select valid tags." },
+          values,
+        },
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    data: {
+      values,
+      categoryId,
+      tagIds,
+    },
+  };
 }
 
 export async function listAdminPosts(): Promise<AdminPostRow[]> {
@@ -146,104 +259,76 @@ export async function getPostFormOptions(): Promise<{
   }
 }
 
+export async function getEditablePost(postId: number): Promise<EditablePost | null> {
+  try {
+    const post = await prisma.post.findUnique({
+      where: { id: postId },
+      select: {
+        id: true,
+        title: true,
+        excerpt: true,
+        content: true,
+        categoryId: true,
+        published: true,
+        tags: {
+          select: {
+            tagId: true,
+          },
+          orderBy: {
+            tagId: "asc",
+          },
+        },
+      },
+    });
+
+    if (!post) {
+      return null;
+    }
+
+    return {
+      id: post.id,
+      values: {
+        title: post.title,
+        excerpt: post.excerpt ?? "",
+        body: post.content,
+        categoryId: post.categoryId ? String(post.categoryId) : "",
+        tagIds: post.tags.map((tag) => String(tag.tagId)),
+        published: post.published,
+      },
+    };
+  } catch (error) {
+    console.error("Failed to fetch post for editing:", error);
+    throw new Error("Unable to load post for editing.");
+  }
+}
+
 export async function createPostAction(
   _previousState: PostFormState,
   formData: FormData,
 ): Promise<PostFormState> {
   "use server";
 
-  const values: PostFormValues = {
-    title: String(formData.get("title") ?? "").trim(),
-    excerpt: String(formData.get("excerpt") ?? "").trim(),
-    body: String(formData.get("body") ?? "").trim(),
-    categoryId: String(formData.get("categoryId") ?? ""),
-    tagIds: formData.getAll("tagIds").map((value) => String(value)),
-    published: formData.get("published") === "on",
-  };
-
-  const fieldErrors: PostFormState["fieldErrors"] = {};
-
-  if (!values.title) {
-    fieldErrors.title = "Title is required.";
-  }
-
-  if (!values.body) {
-    fieldErrors.body = "Body is required.";
-  }
-
-  if (values.excerpt.length > 300) {
-    fieldErrors.excerpt = "Excerpt must be 300 characters or fewer.";
-  }
-
-  const categoryId = values.categoryId ? parseIntegerId(values.categoryId) : null;
-  if (values.categoryId && !categoryId) {
-    fieldErrors.categoryId = "Select a valid category.";
-  }
-
-  const parsedTagIds = Array.from(
-    new Set(values.tagIds.map((value) => parseIntegerId(value)).filter((id): id is number => id !== null)),
-  );
-
-  if (values.tagIds.length !== parsedTagIds.length) {
-    fieldErrors.tagIds = "Select valid tags.";
-  }
-
-  if (Object.keys(fieldErrors).length > 0) {
-    return {
-      message: "Please fix the highlighted fields.",
-      fieldErrors,
-      values,
-    };
+  const values = parsePostFormValues(formData);
+  const validation = await validatePostInput(values);
+  if (!validation.ok) {
+    return validation.state;
   }
 
   try {
-    if (categoryId) {
-      const categoryExists = await prisma.category.findUnique({
-        where: { id: categoryId },
-        select: { id: true },
-      });
-
-      if (!categoryExists) {
-        return {
-          message: "Selected category does not exist.",
-          fieldErrors: { categoryId: "Select a valid category." },
-          values,
-        };
-      }
-    }
-
-    if (parsedTagIds.length > 0) {
-      const matchingTagsCount = await prisma.tag.count({
-        where: {
-          id: {
-            in: parsedTagIds,
-          },
-        },
-      });
-
-      if (matchingTagsCount !== parsedTagIds.length) {
-        return {
-          message: "One or more selected tags are invalid.",
-          fieldErrors: { tagIds: "Select valid tags." },
-          values,
-        };
-      }
-    }
-
-    const slug = await createUniqueSlug(values.title);
+    const slug = await createUniqueSlug(validation.data.values.title);
 
     await prisma.post.create({
       data: {
-        title: values.title,
+        title: validation.data.values.title,
         slug,
-        excerpt: values.excerpt || null,
-        content: values.body,
-        published: values.published,
-        publishedAt: values.published ? new Date() : null,
-        categoryId,
-        tags: parsedTagIds.length
+        excerpt: validation.data.values.excerpt || null,
+        content: validation.data.values.body,
+        published: validation.data.values.published,
+        publishedAt: validation.data.values.published ? new Date() : null,
+        categoryId: validation.data.categoryId,
+        tags: validation.data.tagIds.length
           ? {
-              create: parsedTagIds.map((tagId) => ({
+              create: validation.data.tagIds.map((tagId) => ({
                 tagId,
               })),
             }
@@ -260,5 +345,63 @@ export async function createPostAction(
   }
 
   revalidatePath("/admin");
+  redirect("/admin");
+}
+
+export async function updatePostAction(
+  postId: number,
+  _previousState: PostFormState,
+  formData: FormData,
+): Promise<PostFormState> {
+  "use server";
+
+  const values = parsePostFormValues(formData);
+  const validation = await validatePostInput(values);
+  if (!validation.ok) {
+    return validation.state;
+  }
+
+  try {
+    const existingPost = await prisma.post.findUnique({
+      where: { id: postId },
+      select: { id: true, publishedAt: true },
+    });
+
+    if (!existingPost) {
+      return {
+        message: "Post not found.",
+        fieldErrors: {},
+        values,
+      };
+    }
+
+    await prisma.post.update({
+      where: { id: postId },
+      data: {
+        title: validation.data.values.title,
+        excerpt: validation.data.values.excerpt || null,
+        content: validation.data.values.body,
+        published: validation.data.values.published,
+        publishedAt: validation.data.values.published
+          ? existingPost.publishedAt ?? new Date()
+          : null,
+        categoryId: validation.data.categoryId,
+        tags: {
+          deleteMany: {},
+          create: validation.data.tagIds.map((tagId) => ({ tagId })),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Failed to update post:", error);
+    return {
+      message: "Failed to update post. Please try again.",
+      fieldErrors: {},
+      values,
+    };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath(`/admin/posts/${postId}/edit`);
   redirect("/admin");
 }
