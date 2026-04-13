@@ -2,12 +2,12 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { verifyAdminPassword } from "@/lib/auth";
 import {
   createSessionToken,
   getSessionMaxAgeSeconds,
   SESSION_COOKIE_NAME,
-  verifyAdminPassword,
-} from "@/lib/auth";
+} from "@/lib/session";
 
 export async function loginAction(formData: FormData): Promise<void> {
   const rawPassword = formData.get("password");
@@ -30,7 +30,7 @@ export async function loginAction(formData: FormData): Promise<void> {
     redirect("/admin/login?error=invalid_credentials");
   }
 
-  const token = createSessionToken();
+  const token = await createSessionToken();
   const cookieStore = await cookies();
 
   cookieStore.set({
