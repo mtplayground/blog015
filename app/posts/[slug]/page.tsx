@@ -90,7 +90,7 @@ export default async function PostDetailPage({ params }: PostPageProps) {
             <span>{formatDate(displayDate)}</span>
             <span>•</span>
             {post.category ? (
-              <Link href={`/category/${post.category.slug}`} className="hover:underline">
+              <Link href={`/categories/${post.category.slug}`} className="hover:underline">
                 {post.category.name}
               </Link>
             ) : (
@@ -105,7 +105,7 @@ export default async function PostDetailPage({ params }: PostPageProps) {
               {post.tags.map((tagLink) => (
                 <li key={tagLink.tag.slug}>
                   <Link
-                    href={`/tag/${tagLink.tag.slug}`}
+                    href={`/tags/${tagLink.tag.slug}`}
                     className="rounded-full bg-zinc-100 px-2 py-1 transition hover:bg-zinc-200"
                   >
                     #{tagLink.tag.name}
