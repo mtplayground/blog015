@@ -36,7 +36,7 @@ export function PostCard({ title, slug, excerpt, date, category, tags }: PostCar
         <span>{formatDate(date)}</span>
         <span>•</span>
         {category ? (
-          <Link href={`/category/${category.slug}`} className="hover:underline">
+          <Link href={`/categories/${category.slug}`} className="hover:underline">
             {category.name}
           </Link>
         ) : (
@@ -51,7 +51,7 @@ export function PostCard({ title, slug, excerpt, date, category, tags }: PostCar
           {tags.map((tag) => (
             <li key={tag.slug}>
               <Link
-                href={`/tag/${tag.slug}`}
+                href={`/tags/${tag.slug}`}
                 className="rounded-full bg-zinc-100 px-2 py-1 transition hover:bg-zinc-200"
               >
                 #{tag.name}
