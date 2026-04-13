@@ -1,36 +1,142 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Blog015
 
-## Getting Started
+Blog015 is a full-stack blog application built with Next.js App Router, Prisma, SQLite, and Tailwind CSS.
+It includes:
 
-First, run the development server:
+- Public blog pages (homepage, post details, category/tag filters)
+- Admin authentication with signed HTTP-only session cookies
+- Admin CRUD for posts, categories, and tags
+- SEO endpoints (`/sitemap.xml`, `/robots.txt`)
+- Docker support for production-style deployment
+
+## Tech Stack
+
+- Next.js 16 (App Router, TypeScript)
+- Prisma ORM + SQLite
+- Tailwind CSS
+- Server Actions for admin mutations
+
+## Prerequisites
+
+- Node.js 20+
+- npm 9+
+
+## Local Development Setup
+
+1. Install dependencies:
+
+```bash
+npm ci
+```
+
+2. Configure environment variables:
+
+```bash
+cp .env.example .env
+```
+
+3. Run Prisma migrations:
+
+```bash
+npx prisma migrate dev
+```
+
+4. Seed sample data:
+
+```bash
+npm run seed
+```
+
+5. Start the app:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The app runs on `http://localhost:8080`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Set these in `.env`:
 
-## Learn More
+| Variable | Required | Description |
+| --- | --- | --- |
+| `DATABASE_URL` | Yes | Prisma SQLite connection string (example: `file:./dev.db`) |
+| `ADMIN_PASSWORD` | Yes | Password used by `/admin/login` |
+| `SESSION_SECRET` | Yes | Secret for signing/verifying session cookies |
+| `BASE_URL` | Yes | Public base URL used for metadata, sitemap, robots |
 
-To learn more about Next.js, take a look at the following resources:
+See [.env.example](./.env.example) for documented defaults.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Useful Commands
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run dev      # Start development server on 0.0.0.0:8080
+npm run build    # Production build
+npm run start    # Start production server on 0.0.0.0:8080
+npm run lint     # Run ESLint
+npm run seed     # Seed sample categories/tags/posts
+```
 
-## Deploy on Vercel
+## Prisma Notes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Prisma schema: `prisma/schema.prisma`
+- Migrations: `prisma/migrations/`
+- Seed script: `prisma/seed.ts`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+If you update the schema:
+
+```bash
+npx prisma migrate dev --name <migration-name>
+```
+
+## Docker Deployment
+
+### Option A: Docker Compose (recommended)
+
+1. Ensure environment variables are set in your shell or `.env`.
+2. Build and run:
+
+```bash
+docker compose up --build -d
+```
+
+3. Open `http://localhost:8080`.
+
+SQLite data is persisted using the named volume `blog015_sqlite_data` mounted at `/data`.
+
+Stop services:
+
+```bash
+docker compose down
+```
+
+### Option B: Dockerfile only
+
+Build image:
+
+```bash
+docker build -t blog015:latest .
+```
+
+Run container:
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e NODE_ENV=production \
+  -e DATABASE_URL="file:/data/dev.db" \
+  -e ADMIN_PASSWORD="<your-admin-password>" \
+  -e SESSION_SECRET="<your-session-secret>" \
+  -e BASE_URL="http://localhost:8080" \
+  -v blog015_sqlite_data:/data \
+  blog015:latest
+```
+
+## Admin Access
+
+- Login URL: `/admin/login`
+- Admin routes are protected by middleware.
+
+## License
+
+Internal project for the mtplayground/blog015 repository.
