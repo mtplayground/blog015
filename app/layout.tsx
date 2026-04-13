@@ -15,8 +15,27 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Blog015",
+  metadataBase: new URL(process.env.BASE_URL ?? "http://localhost:8080"),
+  title: {
+    default: "Blog015",
+    template: "%s | Blog015",
+  },
   description: "A simple blog built with Next.js and Prisma.",
+  openGraph: {
+    type: "website",
+    title: "Blog015",
+    description: "A simple blog built with Next.js and Prisma.",
+    url: "/",
+    siteName: "Blog015",
+    images: [
+      {
+        url: "/og-default.png",
+        width: 1200,
+        height: 630,
+        alt: "Blog015",
+      },
+    ],
+  },
 };
 
 export default function RootLayout({

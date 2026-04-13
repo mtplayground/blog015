@@ -1,8 +1,27 @@
+import type { Metadata } from "next";
 import { Pagination } from "./components/pagination";
 import { PostCard } from "./components/post-card";
 import { prisma } from "@/lib/prisma";
 
 const POSTS_PER_PAGE = 5;
+
+export const metadata: Metadata = {
+  title: "Home",
+  description: "Browse published posts on Blog015.",
+  openGraph: {
+    title: "Blog015",
+    description: "Browse published posts on Blog015.",
+    url: "/",
+    images: [
+      {
+        url: "/og-default.png",
+        width: 1200,
+        height: 630,
+        alt: "Blog015",
+      },
+    ],
+  },
+};
 
 type HomePageProps = {
   searchParams?: Promise<{
