@@ -1,0 +1,87 @@
+# Architecture Plan (Issues #1-#21)
+
+## 1) Module Structure and File Organization
+
+### Core app structure (Next.js App Router)
+- `app/`
+- `app/(public)/layout.tsx` - shared public layout/navigation (#18)
+- `app/(public)/page.tsx` - homepage with pagination (#15)
+- `app/(public)/posts/[slug]/page.tsx` - post detail (#16)
+- `app/(public)/category/[slug]/page.tsx` - category filter page (#17)
+- `app/(public)/tag/[slug]/page.tsx` - tag filter page (#17)
+- `app/admin/login/page.tsx` - admin login UI (#6)
+- `app/admin/page.tsx` - admin dashboard post list (#9)
+- `app/admin/posts/new/page.tsx` - create post form (#10)
+- `app/admin/posts/[id]/edit/page.tsx` - edit post form (#11)
+- `app/admin/categories/page.tsx` - category management (#13)
+- `app/admin/tags/page.tsx` - tag management (#14)
+- `app/admin/actions.ts` - server actions for CRUD/auth/logout (#8, #10-#14)
+- `app/sitemap.ts` and `app/robots.ts` - SEO endpoints (#20)
+
+### Shared libraries
+- `lib/db.ts` - Prisma client singleton (#2)
+- `lib/auth.ts` - password/session verification helpers (#6-#8)
+- `lib/env.ts` - typed environment access/validation (#4)
+- `lib/posts.ts` - query helpers for public/admin listing and detail pages (#9, #15-#17)
+- `lib/seo.ts` - metadata/Open Graph helpers (#19)
+- `lib/pagination.ts` - pagination utilities (#15)
+
+### Components and styles
+- `components/admin/*` - admin table/forms/actions
+- `components/public/*` - post cards, pagination controls, filters, nav
+- `components/shared/*` - reusable UI primitives
+- `types/` - shared TypeScript domain types/view models
+- `prisma/schema.prisma` and `prisma/seed.ts` (#2, #3)
+
+## 2) Shared Types / Data Model
+
+### Prisma entities
+- `Post`: `id`, `title`, `slug`, `content`, `excerpt`, `published`, `publishedAt`, timestamps
+- `Category`: `id`, `name`, `slug`
+- `Tag`: `id`, `name`, `slug`
+- Relations:
+- Post -> Category (many-to-one)
+- Post <-> Tag (many-to-many)
+
+### TS view types (in `types/`)
+- `PostListItem`, `PostDetail`, `CategorySummary`, `TagSummary`, `PaginatedResult<T>`
+- Keep UI-facing types separate from raw Prisma models for stability and API clarity.
+
+## 3) Issue Dependency Map
+
+### Foundation first
+1. #1 Next.js scaffold
+2. #2 Prisma schema + client
+3. #4 env configuration
+4. #3 seed script (depends on #2)
+5. #5 Docker setup (depends on #1/#2/#4)
+
+### Admin auth + management
+6. #6 login/password verification (depends on #4)
+7. #7 admin route middleware (depends on #6)
+8. #8 logout (depends on #6/#7)
+9. #9 dashboard list (depends on #2/#7)
+10. #10 create post (depends on #2/#7/#9)
+11. #11 edit post (depends on #10)
+12. #12 delete post (depends on #9/#10/#11)
+13. #13 category management (depends on #2/#7)
+14. #14 tag management (depends on #2/#7)
+
+### Public site + SEO/docs
+15. #15 homepage pagination (depends on #2)
+16. #16 post detail (depends on #15)
+17. #17 category/tag filters (depends on #13/#14/#15)
+18. #18 shared public layout/nav (depends on #15-#17)
+19. #19 metadata + OG tags (depends on #15-#18)
+20. #20 sitemap + robots (depends on #15-#19)
+21. #21 README (depends on all implementation decisions)
+
+## 4) Key Design Decisions
+
+- Use server components by default; client components only for interactive form UX.
+- Use Next.js Server Actions for admin CRUD to avoid custom API boilerplate.
+- Use cookie-based admin session with middleware guard for `/admin/*` except `/admin/login`.
+- Enforce unique slugs for posts/categories/tags and centralize slug generation utility.
+- Keep public queries read-optimized in `lib/posts.ts` with explicit `select` fields.
+- Keep SEO generation centralized through helper functions reused by page metadata and sitemap.
+- SQLite + Prisma chosen for local simplicity; Docker includes persistent volume for DB file.
