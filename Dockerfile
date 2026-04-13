@@ -32,11 +32,14 @@ ENV DATABASE_URL=file:/app/data/dev.db
 RUN mkdir -p /app/data
 
 COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/next.config.ts ./next.config.ts
 COPY --from=builder /app/prisma ./prisma
+COPY .env ./.env
 COPY start.sh /app/start.sh
 
 RUN chmod +x /app/start.sh
